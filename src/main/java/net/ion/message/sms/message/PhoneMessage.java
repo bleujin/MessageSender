@@ -1,6 +1,8 @@
 package net.ion.message.sms.message;
 
-import net.ion.message.sms.sender.Sender;
+import com.google.common.base.Preconditions;
+import net.ion.message.sms.response.MessagingResponse;
+import net.ion.message.sms.sender.SMSSender;
 import net.ion.radon.aclient.ListenableFuture;
 import net.ion.radon.aclient.Request;
 import net.ion.radon.aclient.RequestBuilder;
@@ -11,11 +13,12 @@ import org.restlet.data.Method;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.Future;
 
 public class PhoneMessage {
 
     private JSONObject param = new JSONObject();
-    private Sender sender;
+    private SMSSender sender;
 
     public PhoneMessage(String serialNo) {
         setAttribute("member", serialNo);
@@ -24,7 +27,7 @@ public class PhoneMessage {
         setAttribute("encoding", "UNICODE");
     }
 
-    public void setSender(Sender sender) {
+    public void setSender(SMSSender sender) {
         this.sender = sender;
     }
 
@@ -36,18 +39,20 @@ public class PhoneMessage {
         return param;
     }
 
-    public PhoneMessage from(String fromPhone) {
-        String[] phoneNums = StringUtils.split(fromPhone, "-");
+    public PhoneMessage from(String fromNum) {
 
-        from(phoneNums[0], phoneNums[1], phoneNums[2]);
+        if(sender.isDomesticMessage()) {
+            String[] fromNums = StringUtils.split(fromNum, "-");
+            Preconditions.checkArgument(fromNums.length == 3, "Phone number format is XXX-XXXX-XXXX");
 
-        return this;
-    }
+            setAttribute("from_num1", fromNums[0]);
+            setAttribute("from_num2", fromNums[1]);
+            setAttribute("from_num3", fromNums[2]);
 
-    public PhoneMessage from(String phoneItem1, String phoneItem2, String phoneItem3) {
-        setAttribute("from_num1", phoneItem1);
-        setAttribute("from_num2", phoneItem2);
-        setAttribute("from_num3", phoneItem3);
+        } else {
+            setAttribute("from_num", StringUtils.replace(fromNum, "-", ""));
+        }
+
         return this;
     }
 
@@ -99,7 +104,7 @@ public class PhoneMessage {
         return builder.toString();
     }
 
-    public ListenableFuture send() throws IOException {
+    public Future<MessagingResponse> send() throws IOException {
         return sender.send(this);
     }
 }
