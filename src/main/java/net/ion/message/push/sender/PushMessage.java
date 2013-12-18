@@ -6,6 +6,7 @@ import net.ion.message.push.sender.handler.ResponseHandler;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class PushMessage {
 
@@ -49,4 +50,9 @@ public class PushMessage {
         return sendAsync(message, DefaultResponseHandler.create(this));
     }
 
+    public <T> Future<T> sendSchedule(String message, int sendAfter, TimeUnit timeUnit, ResponseHandler<T> handler) throws InterruptedException {
+        Thread.sleep(TimeUnit.MILLISECONDS.convert(sendAfter, timeUnit));
+
+        return sendAsync(message, handler);
+    }
 }

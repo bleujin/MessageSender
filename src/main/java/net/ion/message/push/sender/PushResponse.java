@@ -58,14 +58,4 @@ public class PushResponse {
                 .add("exceptions", occuredExceptions)
                 .toString();
     }
-
-    public void addException(Throwable t) {
-        success = false;
-        occuredExceptions.add(t);
-    }
-
-    public List<Throwable> getOccuredExceptions() {
-        return occuredExceptions;
-    }
-
 }

@@ -1,15 +1,20 @@
 package net.ion.message.push.sender;
 
+import net.ion.framework.util.Debug;
+import net.ion.message.push.sender.handler.BeforeSendHandler;
 import net.ion.message.push.sender.handler.ResponseHandler;
 import net.ion.message.push.sender.strategy.TestStrategies;
+import net.ion.message.push.sender.strategy.TimePrintResponseHandler;
 import org.testng.annotations.Test;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 public class SenderTest {
 
@@ -49,7 +54,13 @@ public class SenderTest {
         String invalidUserId = "airkjh2";
         int retryCount = 5;
 
-        Sender sender = SenderConfig.createRetryTestConfig(retryCount).createSender(TestStrategies.airkjhAPNSStrategy());
+        SenderConfig retryConfig = SenderConfig.newBuilder()
+                .appleConfig("/Users/airkjh/Desktop/toontalk.p12", "toontalk", true)
+                .googleConfig("")               // we do not use google sender at this time, so just don't pass api key argument as null
+                .retryAttempts(retryCount)
+                .build();
+
+        Sender sender = retryConfig.createSender(TestStrategies.airkjhAPNSStrategy());
 
         Future<Integer> attempts = sender.createMessage(invalidUserId).sendAsync("모두 실패!!", new ResponseHandler<Integer>() {
             int failCount = 0;
@@ -109,9 +120,46 @@ public class SenderTest {
         });
 
 
-        // invalid api key occures exception
+        // invalid api key(google) occures exception
         assertEquals(retryCount, exceptionCount.get().intValue());
     }
+
+    @Test
+    public void retryInterval() {
+        SenderConfig config = SenderConfig.newBuilder().googleConfig("invalid_api_key")
+                .retryAttempts(3)
+                .retryAfter(20, TimeUnit.SECONDS)
+                .build();
+
+        Sender sender = config.createSender(TestStrategies.airkjhGoogleStrategy());
+
+        sender.createMessage("airkjh").sendAsync("Hello World!!", new TimePrintResponseHandler());
+    }
+
+    @Test
+    public void sendSchedule() throws InterruptedException {
+
+        SimpleDateFormat sdf = new SimpleDateFormat("hh-mm-ss");
+        Debug.line("Runned at ", sdf.format(new Date()));
+
+        senderForAPNS.createMessage("airkjh").sendSchedule("안녕", 10, TimeUnit.SECONDS, new TimePrintResponseHandler());
+    }
+
+    @Test
+    public void beforeSendHandler() {
+
+        senderForAPNS.setBeforeSendHandler(new BeforeSendHandler() {
+            @Override
+            public void handle(PushMessage message) {
+                SimpleDateFormat sdf = new SimpleDateFormat("hh-mm-ss");
+                Debug.line("Request at ", sdf.format(new Date()));
+            }
+        });
+
+        senderForAPNS.createMessage("airkjh").send("안녕들하십니까");
+
+    }
+
 
 
 }

@@ -4,6 +4,7 @@ import net.ion.message.push.sender.strategy.PushStrategy;
 import org.infinispan.util.concurrent.WithinThreadExecutor;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class SenderConfig {
 
@@ -14,6 +15,7 @@ public class SenderConfig {
 
     private ExecutorService es;
     private int retryCount;
+    private long retryAfter;
 
     private SenderConfig() {
     }
@@ -62,6 +64,10 @@ public class SenderConfig {
         return retryCount;
     }
 
+    public long getRetryAfter() {
+        return retryAfter;
+    }
+
     public static class SenderConfigBuilder {
 
         private String keystore;
@@ -70,6 +76,8 @@ public class SenderConfig {
         private String apiKey;
         private ExecutorService es;
         private int retryCount = 0;             // default config is that don't retry when failed
+        private long retryInterval = 10;
+        private TimeUnit intervalUnit = TimeUnit.SECONDS;
 
         public SenderConfigBuilder appleConfig(String keystore, String password, boolean isProduction) {
             this.keystore = keystore;
@@ -93,19 +101,31 @@ public class SenderConfig {
             return this;
         }
 
+        public SenderConfigBuilder retryAfter(long interval, TimeUnit unit) {
+            this.retryInterval = interval;
+            this.intervalUnit = unit;
+            return this;
+        }
+
         public SenderConfig build() {
             SenderConfig config = new SenderConfig();
+
             config.apnsKeyStore = keystore;
             config.apnsPassword = password;
             config.apnsIsProduction = production;
             config.googleAPIKey = apiKey;
             config.retryCount = retryCount;
+            config.retryAfter = getRetryIntervalInSec();
 
             if (this.es == null) {
                 config.es = new WithinThreadExecutor();
             }
 
             return config;
+        }
+
+        private long getRetryIntervalInSec() {
+            return TimeUnit.SECONDS.convert(retryInterval, intervalUnit);
         }
 
     }

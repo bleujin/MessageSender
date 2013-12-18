@@ -1,5 +1,6 @@
 package net.ion.message.push.sender;
 
+import net.ion.message.push.sender.handler.BeforeSendHandler;
 import net.ion.message.push.sender.handler.ResponseHandler;
 import net.ion.message.push.sender.strategy.PushStrategy;
 
@@ -15,6 +16,7 @@ public class Sender {
     private APNSSender apnsSender;
     private GCMSender gcmSender;
     private ExecutorService es;
+    private BeforeSendHandler beforeHandler;
 
     private Sender(PushStrategy strategy, ExecutorService es, SenderConfig config) {
         this.strategy = strategy;
@@ -50,11 +52,17 @@ public class Sender {
             @Override
             public T call() throws Exception {
 
+                long retryIntervalInMillis = config.getRetryAfter() * 1000;
+
                 for (String receiver : pushMessage.getReceivers()) {
                     String token = strategy.deviceId(receiver);
                     int failCount = 0;
 
                     PushResponse response = null;
+
+                    if(beforeHandler != null) {
+                        beforeHandler.handle(pushMessage);
+                    }
 
                     do {
                         try {
@@ -73,10 +81,18 @@ public class Sender {
                             handler.onThrow(receiver, token, t);
                         }
 
-                    } while (failCount < config.getRetryCount());
+                        if(shouldRetry(failCount)) {
+                            Thread.sleep(retryIntervalInMillis);
+                        }
+
+                    } while (shouldRetry(failCount));
                 }
 
                 return handler.result();
+            }
+
+            private boolean shouldRetry(int failCount) {
+                return failCount < config.getRetryCount();
             }
 
             private PushResponse doSend(String receiver, String token) throws Exception {
@@ -103,5 +119,9 @@ public class Sender {
         };
 
         return es.submit(sendTask);
+    }
+
+    public void setBeforeSendHandler(BeforeSendHandler handler) {
+        this.beforeHandler = handler;
     }
 }
